@@ -105,6 +105,49 @@
       var builder = new WebKitBlobBuilder();
       builder.append(Base64.decode(dataUrlAdjusted).buffer);
 
+      function sendComment(resp, xhr) {
+          if (!(xhr.status >= 200 && xhr.status <= 299)) {
+              alert('Error: Response status = ' + xhr.status + ', response body = "' + xhr.responseText + '"');
+          } else {
+
+              var photoIdUrl = [];
+              var resObj = $.parseJSON(xhr.responseText);
+              var str = "*Clipped from:* \r\n" + data.pageUrl;
+              var msg = str.replace(/\&/g, '&amp;');
+              var fileType = "image/png";
+
+
+              if (resObj.entry.link) {
+
+                  fileName = resObj.entry.title.$t;
+
+                  $.each(resObj.entry.link, function (index, linkObj) {
+                      if (linkObj.rel === "http://schemas.google.com/g/2005#feed") {
+                          photoIdUrl = linkObj.href.split("?");
+                      }
+                  });
+
+                  var headerBody = ['<entry xmlns="http://www.w3.org/2005/Atom">', 
+                                    '<content>', msg, '</content>', 
+                                    '<category scheme="http://schemas.google.com/g/2005#kind" term="http://schemas.google.com/photos/2007#comment"/>',
+                                    '</entry>'].join('');
+
+                  OAUTH.authorize(function () {
+                      OAUTH.sendSignedRequest(photoIdUrl[0], complete, {
+                          method: 'POST',
+                          headers: {
+                              'Content-Type': 'application/atom+xml'
+                          },
+                          parameters: {
+                              'alt': 'json'
+                          },
+                          body: headerBody
+                      });
+                  });
+              }
+          }
+      } // end sendComment
+
       function complete(resp, xhr) {
         chrome.pageAction.hide(tab.id);
         if (!(xhr.status >= 200 && xhr.status <= 299)) {
@@ -117,7 +160,7 @@
         OAUTH.sendSignedRequest(
           'http://picasaweb.google.com/data/feed/api/' +
           'user/default/albumid/' + albumId,
-          complete,
+          sendComment,
           {
             method: 'POST',
             headers: {
